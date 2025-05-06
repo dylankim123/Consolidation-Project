@@ -1,0 +1,140 @@
+#imports the random number generator 
+import random
+
+#below we defined lists for suits, values (including names for 1, 11, and 12), and card values
+suitlist = ['Hearts', 'Diamonds', 'Clubs', 'Spades']
+valuelist = ['Ace'] + [str(n) for n in range(2, 11)] + ['Jack', 'Queen'] #list of strings for each value, "Ace" or "2"
+card_values = {val: i+1 for i, val in enumerate(valuelist)} #makes a dictionary where each string in value_list is assigned its actual value
+
+#below we initialize a class called Card so each card can have a value and a suit
+class Card:
+    def __init__(self, suit, value):
+        self.suit = suit
+        self.value = value
+   
+    def __str__(self):
+        return f"{self.value} of {self.suit}" #example: Queen of Hearts
+
+    def numeric_value(self):
+        return card_values[self.value] #takes numeric value for score comparison
+
+#below we initialize a class called Deck so we can have a 48-card deck that is shuffled
+class Deck: 
+    def __init__(self):
+        self.cards = [Card(suit, value) for suit in suitlist for value in valuelist]
+        random.shuffle(self.cards)
+
+    def draw(self, num): #draw from top of the deck and then returns it so the deck remains updated
+        drawn, self.cards = self.cards[:num], self.cards[num:]
+        return drawn
+
+    def reveal_card(self):
+        if self.cards:
+            top_card = self.cards[0] #look at the top card
+            self.cards = self.cards[1:] #remove top card
+            return top_card
+        return None
+
+#below we initialize a class called Player so each player can have a name and start without any cards or points
+class Player:
+    def __init__(self, name):
+        self.name = name #player's name
+        self.hand = [] #player's hand
+        self.score = 0 #player's score
+
+    def play_card(self, lead_suit): 
+        print(f"{self.name}'s hand:")
+        for i, card in enumerate(self.hand): #for each card in the hand
+            print(f"  {i + 1}: {card}") #print the card with numbered options
+
+        #for the entire chunk of code below, this is how we determine the lead suit so the remaining player must use that suit if they have it 
+        valid_indices = [i for i, c in enumerate(self.hand) if c.suit == lead_suit]
+
+        card_chosen = False
+        while not card_chosen: #loop until a valid card is chosen
+            user_input = input(f"{self.name}, choose a card to play (1 to {len(self.hand)}): ")
+            if user_input.isdigit():
+                index = int(user_input) - 1 #changes the input to an index and subtracts one so we can start from 0 in the index
+                if 0 <= index < len(self.hand):
+                    selected_card = self.hand[index] #checks if the card is valid
+                    if lead_suit and valid_indices and index not in valid_indices:
+                        print("You must follow suit if you have it.") #shows if the player has the suit that they must play and didnt use it
+                    else:
+                        self.hand = self.hand[:index] + self.hand[index+1:]
+                        card_chosen = True
+                        return selected_card #removes the played card so the player cant use it again
+                else:
+                    print("Invalid number. Please choose a card from your hand.") 
+            else:
+                print("Please enter a valid number.")
+
+def determine_winner(card1, card2, lead_suit): #a function to determine the winner
+    if card1.suit == card2.suit == lead_suit:
+        return card1 if card1.numeric_value() > card2.numeric_value() else card2 #higher card wins if both cards follow the lead suit
+    elif card1.suit == lead_suit:
+        return card1
+    elif card2.suit == lead_suit:
+        return card2
+    return None #determines winner
+
+def main(): #main function
+    print("Welcome to Tricksy Battle!")
+
+    deck = Deck() 
+    player1 = Player(input("Enter name for Player 1: "))
+    player2 = Player(input("Enter name for Player 2: "))
+    players = [player1, player2] #starts game, sets deck and players
+
+    #deals cards
+    for p in players:
+        p.hand = deck.draw(8)
+
+    leader_index = random.randint(0, 1) #randomly chooses who goes first
+    print(f"{players[leader_index].name} leads first!") 
+
+    rounds = 0
+    while rounds < 16 and all(p.score < 9 or p.score == 0 for p in players): #game loop
+        leader = players[leader_index]
+        follower = players[1 - leader_index]
+
+        print(f"\nRound {rounds + 1}")
+        print(f"The score is: {leader.name} - {leader.score} & {follower.name} - {follower.score}") #prints round and current score
+        lead_card = leader.play_card(None)
+        print(f"{leader.name} plays {lead_card}")
+        follow_card = follower.play_card(lead_card.suit)
+        print(f"{follower.name} plays {follow_card}") #both players pick their cards and follow must follow the suit
+
+        winner_card = determine_winner(lead_card, follow_card, lead_card.suit)
+        winner = leader if winner_card == lead_card else follower
+        winner.score += 1
+        print(f"{winner.name} wins the round!") #round winner is determined and receives a point
+
+        revealed = deck.reveal_card()
+        if revealed:
+            print(f"Revealed card from deck: {revealed}") #reveals the top card
+
+        leader_index = 0 if winner == player1 else 1
+        rounds += 1 #updates who leads the round and the round counter
+
+        if len(player1.hand) == 4 and rounds < 16:
+            print("Both players draw 4 more cards!")
+            for p in players:
+                p.hand += deck.draw(4) #players draw four cards if they are down to four and the game is still continuing
+
+    print("\nGame over!")
+    for p in players:
+        print(f"{p.name}: {p.score} points") #game is over with final score
+
+    if player1.score == 0 and player2.score == 16:
+        print(f"{player1.name} shoots the moon and wins with 17 points!")
+    elif player2.score == 0 and player1.score == 16:
+        print(f"{player2.name} shoots the moon and wins with 17 points!") #special cases incase the loser loses with a score of 0-16
+    elif player1.score > player2.score:
+        print(f"{player1.name} wins!")
+    elif player2.score > player1.score:
+        print(f"{player2.name} wins!")
+    else:
+        print("It's a tie!") #if it is a tie
+
+if __name__ == "__main__":
+    main()
